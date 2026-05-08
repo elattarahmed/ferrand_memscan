@@ -85,7 +85,7 @@ void keyword_load(const char *filename) {
 		/* TODO: skip blank lines and comments */
 		if (line[0] == '#')
 			continue;
-		printf(" keyword: %s\n", line);
+		printf(" keyword: %s", line);
 		count++;
 	}
 	printf("[*] Loaded %d keyword(s)\n", count);
