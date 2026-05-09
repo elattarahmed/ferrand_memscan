@@ -46,18 +46,34 @@ void read_chunks(FILE *img_fp) {
 	fixed-size buffer and fill it with fread in a loop.
 	*/
 
+	/*
+	When a match is found, investigators need its exact position in the file so
+	they can point their hex editor to that location. Modify your read_chunks()
+	loop to maintain a variable file_pos that tracks the cumulative number of
+	bytes processed so far. For each chunk, the absolute offset of byte buf[i]
+	in the file is: offset = file_pos + 𝑖 Print the offset of the first byte of
+	each chunk in hexadecimal:
+	[*] Processing chunk at offset 0x00000000 (1048576 bytes)
+	[*] Processing chunk at offset 0x00100000 (1048576 bytes)
+	...
+
+	*/
+
+	long file_pos = 0;
+
 	unsigned char *buf = malloc(CHUNK_SIZE);
 	if (!buf) {
 		perror("malloc");
 		exit(EXIT_FAILURE);
 	}
 	size_t bytes_read;
-	long total = 0;
 	while ((bytes_read = fread(buf, 1, CHUNK_SIZE, img_fp)) > 0) {
-		total += bytes_read;
+		file_pos += bytes_read;
 		/* TODO: process buf[0 .. bytes_read-1] */
+		printf("[*] Processing chunk at offset 0x%lx (%ld bytes)\n", file_pos,
+		       bytes_read);
 	}
-	printf("[*] Total bytes read: %ld\n", total);
+	printf("[*] Total bytes read: %ld\n", file_pos);
 	free(buf);
 }
 
@@ -91,6 +107,19 @@ void keyword_load(const char *filename) {
 	printf("[*] Loaded %d keyword(s)\n", count);
 	fclose(dict_fp);
 }
+
+/*
+When a match is found, investigators need its exact position in the file so they
+can point their hex editor to that location. Modify your read_chunks() loop to
+maintain a variable file_pos that tracks the cumulative number of bytes
+processed so far. For each chunk, the absolute offset of byte buf[i] in the file
+is: offset = file_pos + 𝑖 Print the offset of the first byte of each chunk in
+hexadecimal:
+[*] Processing chunk at offset 0x00000000 (1048576 bytes)
+[*] Processing chunk at offset 0x00100000 (1048576 bytes)
+...
+
+*/
 
 int main(int argc, char **argv) {
 	if (argc != 3) {
