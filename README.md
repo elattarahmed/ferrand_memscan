@@ -37,3 +37,7 @@ Prefer tail insertion when you need to add elements at the end of the list.
 When you free a variable the memory allocated to it is deallocated. Meaning you lose all control over that variable.
 
 Instead, you could use the variable before free-ing it, like saving it's value into another variable before freeing it :)
+
+### Note that context_before and context_after are separately heap-allocated inside each node. Why does each node need its own copy rather than storing a pointer directly into the image buffer?
+
+Since the size of the KeyWord is unknown, it's easier to implement 2 pointers than to track the size of the node :)

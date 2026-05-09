@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #define CHUNK_SIZE (1024 * 1024) /* 1 MB */
 
@@ -27,6 +28,11 @@ KeywordNode *keyword_load(const char *filename);
 KeywordNode *keyword_push(KeywordNode *head, const char *word);
 void keyword_print(const KeywordNode *head);
 void keyword_free(KeywordNode *head);
+MatchNode *match_push(MatchNode *head, const char *keyword, long offset,
+                      const char *context_before, const char *context_after,
+                      int ctx_len);
+void match_print_report(const MatchNode *head);
+void match_free(MatchNode *head);
 
 /*
 ##################################################
@@ -198,6 +204,91 @@ void keyword_free(KeywordNode *head) {
 		curr = next;
 	}
 	next = NULL;
+	curr = NULL;
+}
+
+MatchNode *match_push(MatchNode *head, const char *keyword, long offset,
+                      const char *context_before, const char *context_after,
+                      int ctx_len) {
+	/* 1. Allocate a MatchNode */
+	MatchNode *new_node = (MatchNode *)malloc(sizeof(MatchNode));
+	if (!new_node) {
+		perror("malloc");
+		exit(EXIT_FAILURE);
+	}
+
+	/* 2. Fill in keyword, offset, context_len */
+	strncpy(new_node->keyword, keyword, sizeof(new_node->keyword) - 1);
+	new_node->keyword[sizeof(new_node->keyword) - 1] = '\0';
+	new_node->offset = offset;
+
+	/* 3. Allocate ctx_len bytes for context_before and context_after */
+	new_node->context_len = ctx_len;
+	new_node->context_before = (char *)malloc(ctx_len);
+	new_node->context_after = (char *)malloc(ctx_len);
+
+	if (!new_node->context_before || !new_node->context_after) {
+		perror("malloc");
+		exit(EXIT_FAILURE);
+	}
+
+	/* 4. Copy the context data with memcpy */
+	memcpy(new_node->context_before, context_before, ctx_len);
+	memcpy(new_node->context_after, context_after, ctx_len);
+
+	/* 5. Insert at head, return new head */
+	new_node->next = head;
+	return new_node;
+}
+
+void match_print_report(const MatchNode *head) {
+	/*
+	Implement match_print_report(). For each node in the match list, print:
+	[MATCH #1]
+	Keyword : "password"
+	Offset : 0x0000220D (8717 bytes from start)
+	Context : ...login: ad[password]: secret1...
+	To display context bytes, replace non-printable characters (where isprint(c)
+	== 0) with a . char- acter
+	*/
+
+	int match_number = 1;
+	const MatchNode *node = head;
+	while (node != NULL) {
+		printf("[MATCH #%d]\n", match_number);
+		printf("Keyword : \"%s\"\n", node->keyword);
+		printf("Offset : 0x%08lX (%ld bytes from start)\n", node->offset,
+		       node->offset);
+		printf("Context : ...");
+		for (int i = 0; i < node->context_len; i++) {
+			putchar(isprint((unsigned char)node->context_before[i]) ? node->context_before[i] : '.');
+		}
+		printf("[%s]", node->keyword);
+		for (int i = 0; i < node->context_len; i++) {
+			putchar(isprint((unsigned char)node->context_after[i]) ? node->context_after[i] : '.');
+		}
+		printf("...\n");
+		node = node->next;
+		match_number++;
+	}
+}
+
+void match_free(MatchNode *head) {
+	/*
+	Implement match_free(). Be careful: each MatchNode owns three heap
+	allocations — the node itself, context_before, and context_after. All
+	three must be freed in the correct order.
+	*/
+	MatchNode *curr = head;
+
+	while (curr != NULL) {
+		MatchNode *next = curr->next;
+		free(curr->context_before);
+		free(curr->context_after);
+		free(curr);
+		curr = next;
+	}
+
 	curr = NULL;
 }
 
