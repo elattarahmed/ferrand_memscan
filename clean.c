@@ -1,12 +1,38 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define CHUNK_SIZE (1024 * 1024) /* 1 MB */
 
+typedef struct KeywordNode {
+	char word[256];
+	struct KeywordNode *next;
+} KeywordNode;
+/* One match found in the image */
+typedef struct MatchNode {
+	char keyword[256];
+	long offset;
+	char *context_before; /* heap-allocated, ctx_len bytes */
+	char *context_after;  /* heap-allocated, ctx_len bytes */
+	int context_len;
+	struct MatchNode *next;
+} MatchNode;
+
+/* PART 1 */
 FILE *open_image(const char *filename);
 void read_chunks(FILE *fp);
-void keyword_load(const char *filename);
+KeywordNode *keyword_load(const char *filename);
 
+/* PART 2 */
+KeywordNode *keyword_push(KeywordNode *head, const char *word);
+void keyword_print(const KeywordNode *head);
+void keyword_free(KeywordNode *head);
+
+/*
+##################################################
+#                   PART 1                       #
+##################################################
+*/
 FILE *open_image(const char *filename) {
 	/*
 	1: Open the file given by filename in binary read mode.
@@ -77,7 +103,7 @@ void read_chunks(FILE *img_fp) {
 	free(buf);
 }
 
-void keyword_load(const char *filename) {
+KeywordNode *keyword_load(const char *filename) {
 	/*
 	Complete keyword_load(), which opens a plain-text file (one keyword per
 	line) and stores each word for later use. For now, simply print each word to
@@ -87,6 +113,15 @@ void keyword_load(const char *filename) {
 	[*] Loaded N keyword(s) from 'wordlist.txt'.
 	*/
 
+	/*
+	Combine Exercises 1.3 and 2.1: modify keyword_load() to return a
+	KeywordNode * instead of printing words immediately. Each valid line
+	should be inserted into the list with keyword_push. KeywordNode
+	*keyword_load(const char *filename);
+
+	In main, call keyword_load and then keyword_print to verify the result.
+	*/
+
 	FILE *dict_fp = fopen(filename, "r");
 	if (!dict_fp) {
 		perror(filename);
@@ -94,6 +129,7 @@ void keyword_load(const char *filename) {
 	}
 	char line[256];
 	int count = 0;
+	KeywordNode *KW_list = NULL;
 	while (fgets(line, sizeof(line), dict_fp)) {
 		/* TODO: strip newline */
 		if (line[0] == '\0' || line[0] == '\n')
@@ -101,35 +137,84 @@ void keyword_load(const char *filename) {
 		/* TODO: skip blank lines and comments */
 		if (line[0] == '#')
 			continue;
-		printf(" keyword: %s", line);
+		KW_list = keyword_push(KW_list, line);
 		count++;
 	}
 	printf("[*] Loaded %d keyword(s)\n", count);
 	fclose(dict_fp);
+	return KW_list;
 }
 
 /*
-When a match is found, investigators need its exact position in the file so they
-can point their hex editor to that location. Modify your read_chunks() loop to
-maintain a variable file_pos that tracks the cumulative number of bytes
-processed so far. For each chunk, the absolute offset of byte buf[i] in the file
-is: offset = file_pos + 𝑖 Print the offset of the first byte of each chunk in
-hexadecimal:
-[*] Processing chunk at offset 0x00000000 (1048576 bytes)
-[*] Processing chunk at offset 0x00100000 (1048576 bytes)
-...
-
+##################################################
+#                   PART 2                       #
+##################################################
 */
+
+KeywordNode *keyword_push(KeywordNode *head, const char *word) {
+	/* 1. Allocate a new KeywordNode with malloc */
+	KeywordNode *new_node = (KeywordNode *)malloc(sizeof(KeywordNode));
+	if (!new_node) {
+		perror("malloc");
+		exit(EXIT_FAILURE);
+	}
+
+	/* 2. Copy word into node->word with strncpy */
+	strncpy(new_node->word, word, sizeof(new_node->word) - 1);
+	new_node->word[sizeof(new_node->word) - 1] = '\0';
+
+	/* 3. Set node->next = head */
+	new_node->next = head;
+
+	/* 4. Return node (it is now the new head) */
+	return new_node;
+}
+
+void keyword_print(const KeywordNode *head) {
+	/* Use a local pointer: const KeywordNode *node = head; */
+	/* Loop while node != NULL, then advance: node = node->next */
+
+	/*
+	Expected output (order reflects insertion order, i.e. reversed from the
+	file): Keywords loaded:
+	- token
+	- secret
+	- passwd
+	- admin*/
+	const KeywordNode *node = head;
+	while (node != NULL) {
+		printf("- %s", node->word);
+		node = node->next;
+	}
+}
+
+/*Every malloc must have a matching free. Implement keyword_free():*/
+void keyword_free(KeywordNode *head) {
+	KeywordNode *curr = head;
+	KeywordNode *next;
+	while (curr != NULL) {
+		next = curr->next;
+		free(curr);
+		curr = next;
+	}
+	next = NULL;
+	curr = NULL;
+}
 
 int main(int argc, char **argv) {
 	if (argc != 3) {
 		fprintf(stderr, "Usage: %s <image> <keyword_file>\n", argv[0]);
 		return EXIT_FAILURE;
 	}
-	keyword_load(argv[2]);
+	KeywordNode *keyword_list = keyword_load(argv[2]);
 	FILE *img_fp = open_image(argv[1]);
 	read_chunks(img_fp);
 
+	/**/
+	keyword_print(keyword_list);
+	keyword_free(keyword_list);
+
 	fclose(img_fp);
+
 	return 0;
 }
